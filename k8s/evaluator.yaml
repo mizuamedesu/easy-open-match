@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: evaluator
+  namespace: open-match
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: evaluator
+  template:
+    metadata:
+      labels:
+        app: evaluator
+    spec:
+      containers:
+      - name: evaluator
+        image: ghcr.io/mizuamedesu/easy-open-match/evaluator:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 50508
+          name: grpc
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: evaluator
+  namespace: open-match
+spec:
+  selector:
+    app: evaluator
+  ports:
+  - name: grpc
+    port: 50508
+    targetPort: 50508
+  type: ClusterIP
