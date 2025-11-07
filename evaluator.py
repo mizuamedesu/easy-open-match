@@ -26,7 +26,7 @@ class EvaluatorServicer(evaluator_pb2_grpc.EvaluatorServicer):
             for request in request_iterator:
                 # マッチ提案をそのまま返す
                 response = evaluator_pb2.EvaluateResponse(
-                    match=request.match
+                    match_id=request.match.match_id
                 )
                 yield response
 
