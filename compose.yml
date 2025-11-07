@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  test-client-1:
+    image: ghcr.io/mizuamedesu/easy-open-match/testclient:latest
+    network_mode: host
+    environment:
+      - OPEN_MATCH_FRONTEND_SERVICE=open-match-frontend.open-match.svc.cluster.local:50504
+      - ASSIGNMENT_TIMEOUT=60
+
+  test-client-2:
+    image: ghcr.io/mizuamedesu/easy-open-match/testclient:latest
+    network_mode: host
+    environment:
+      - OPEN_MATCH_FRONTEND_SERVICE=open-match-frontend.open-match.svc.cluster.local:50504
+      - ASSIGNMENT_TIMEOUT=60
