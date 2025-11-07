@@ -1,0 +1,47 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: director
+  namespace: open-match
+  labels:
+    app: director
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: director
+  template:
+    metadata:
+      labels:
+        app: director
+    spec:
+      serviceAccountName: director-sa
+      containers:
+      - name: director
+        image: ghcr.io/YOUR_GITHUB_USERNAME/easy-open-match/director:latest
+        imagePullPolicy: Always
+        env:
+        - name: OPEN_MATCH_BACKEND_SERVICE
+          value: "open-match-backend.open-match.svc.cluster.local:50505"
+        - name: MATCH_FUNCTION_HOST
+          value: "matchfunction.open-match.svc.cluster.local"
+        - name: MATCH_FUNCTION_PORT
+          value: "50502"
+        - name: AGONES_ALLOCATOR_ENDPOINT
+          value: "agones-allocator.agones-system.svc.cluster.local"
+        - name: AGONES_ALLOCATOR_PORT
+          value: "443"
+        - name: AGONES_NAMESPACE
+          value: "game"
+        - name: AGONES_FLEET
+          value: "ue5-gameserver-fleet"
+        - name: FETCH_INTERVAL
+          value: "5"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
