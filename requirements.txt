@@ -4,3 +4,4 @@ protobuf
 requests
 googleapis-common-protos
 urllib3
+grpcio-gateway
