@@ -3,28 +3,12 @@ version: '3.8'
 services:
   test-client-1:
     image: ghcr.io/mizuamedesu/easy-open-match/testclient:latest
-    dns:
-      - 172.20.0.10
-    dns_search:
-      - open-match.svc.cluster.local
-      - svc.cluster.local
-      - cluster.local
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     environment:
-      - OPEN_MATCH_FRONTEND_SERVICE=open-match-frontend.open-match.svc.cluster.local:50504
+      - OPEN_MATCH_FRONTEND_SERVICE=host.docker.internal:50504
       - ASSIGNMENT_TIMEOUT=60
 
   test-client-2:
     image: ghcr.io/mizuamedesu/easy-open-match/testclient:latest
-    dns:
-      - 172.20.0.10
-    dns_search:
-      - open-match.svc.cluster.local
-      - svc.cluster.local
-      - cluster.local
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     environment:
-      - OPEN_MATCH_FRONTEND_SERVICE=open-match-frontend.open-match.svc.cluster.local:50504
+      - OPEN_MATCH_FRONTEND_SERVICE=host.docker.internal:50504
       - ASSIGNMENT_TIMEOUT=60

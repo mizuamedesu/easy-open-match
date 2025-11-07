@@ -41,7 +41,7 @@ class MatchFunctionServicer(matchfunction_pb2_grpc.MatchFunctionServicer):
 
             tickets = []
             for response in response_iterator:
-                tickets.append(response.ticket)
+                tickets.extend(response.tickets)
 
             channel.close()
             logger.info(f"Queried {len(tickets)} tickets from pool '{pool.name}'")
