@@ -35,7 +35,7 @@ spec:
     spec:
       containers:
       - name: matchfunction
-        image: ghcr.io/YOUR_GITHUB_USERNAME/easy-open-match/matchfunction:latest
+        image: ghcr.io/mizuamedesu/easy-open-match/matchfunction:latest
         imagePullPolicy: Always
         ports:
         - name: grpc

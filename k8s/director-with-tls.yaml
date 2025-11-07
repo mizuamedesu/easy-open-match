@@ -1,5 +1,5 @@
 ---
-iVersion: apps/v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: director
@@ -19,7 +19,7 @@ spec:
       serviceAccountName: director-sa
       containers:
       - name: director
-        image: ghcr.io/YOUR_GITHUB_USERNAME/easy-open-match/director:latest
+        image: ghcr.io/mizuamedesu/easy-open-match/director:latest
         imagePullPolicy: Always
         env:
         - name: OPEN_MATCH_BACKEND_SERVICE
