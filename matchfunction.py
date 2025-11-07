@@ -87,17 +87,17 @@ class MatchFunctionServicer(matchfunction_pb2_grpc.MatchFunctionServicer):
                 logger.info(f"Created match {match_id} with tickets: {ticket1.id}, {ticket2.id}")
 
                 response = matchfunction_pb2.RunResponse(proposal=match)
-                return response
+                yield response
 
             else:
                 logger.info("Not enough tickets for a 2-player match")
-                return matchfunction_pb2.RunResponse()
+                yield matchfunction_pb2.RunResponse()
 
         except Exception as e:
             logger.error(f"Error in MatchFunction.Run: {e}", exc_info=True)
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(f'Internal error: {str(e)}')
-            return matchfunction_pb2.RunResponse()
+            yield matchfunction_pb2.RunResponse()
 
 
 def serve_grpc(port=50502):
