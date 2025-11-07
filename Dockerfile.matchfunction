@@ -8,6 +8,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY matchfunction.py .
 COPY protos/ ./protos/
 
+# protobuf生成ファイルのimportパスを修正
+RUN find ./protos/api -name '*_pb2*.py' -exec sed -i 's/from api import/from protos.api import/g' {} \;
+
 EXPOSE 50502
 
 CMD ["python", "matchfunction.py"]

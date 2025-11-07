@@ -2,13 +2,13 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy requirements and install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application files
 COPY director.py .
 COPY protos/ ./protos/
 
-# Run the director
+# protobuf生成ファイルのimportパスを修正
+RUN find ./protos/api -name '*_pb2*.py' -exec sed -i 's/from api import/from protos.api import/g' {} \;
+
 CMD ["python", "director.py"]
