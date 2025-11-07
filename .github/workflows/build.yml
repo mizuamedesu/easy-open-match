@@ -19,7 +19,7 @@ jobs:
 
     strategy:
       matrix:
-        component: [matchfunction, director]
+        component: [matchfunction, director, testclient]
 
     steps:
     - name: Checkout repository
