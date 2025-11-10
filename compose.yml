@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   test-client-1:
     image: ghcr.io/mizuamedesu/easy-open-match/testclient:latest

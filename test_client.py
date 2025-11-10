@@ -34,33 +34,57 @@ class MatchmakingClient:
         self.frontend_addr = OPEN_MATCH_FRONTEND_SERVICE
         logger.info(f"Frontend service: {self.frontend_addr}")
 
-    def create_ticket(self) -> Optional[str]:
+    def create_ticket_and_wait(self) -> tuple[Optional[str], Optional[str]]:
+        """
+        チケット作成とアサインメント待機を同じチャネルで実行
+        OpenMatchではCreateTicket後すぐにWatchAssignmentsを呼び出す必要がある
+        """
+        channel = None
+        ticket_id = None
+
         try:
             channel = grpc.insecure_channel(self.frontend_addr)
             stub = frontend_pb2_grpc.FrontendServiceStub(channel)
 
+            # チケット作成
             ticket = messages_pb2.Ticket(
                 search_fields=messages_pb2.SearchFields(tags=[])
             )
-
             request = frontend_pb2.CreateTicketRequest(ticket=ticket)
-
             logger.info("Creating ticket...")
             response = stub.CreateTicket(request, timeout=10)
-
-            channel.close()
-
             ticket_id = response.id
             logger.info(f"Created ticket: {ticket_id}")
 
-            return ticket_id
+            # 同じチャネルでアサインメント待機
+            logger.info(f"Waiting for assignment (timeout: {ASSIGNMENT_TIMEOUT}s)...")
+            watch_request = frontend_pb2.WatchAssignmentsRequest(ticket_id=ticket_id)
+
+            try:
+                response_iterator = stub.WatchAssignments(watch_request, timeout=ASSIGNMENT_TIMEOUT)
+                for response in response_iterator:
+                    if response.assignment and response.assignment.connection:
+                        connection = response.assignment.connection
+                        logger.info(f"Assignment received: {connection}")
+                        return ticket_id, connection
+
+            except grpc.RpcError as e:
+                if e.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
+                    logger.warning("Timeout waiting for assignment")
+                else:
+                    logger.error(f"gRPC error watching assignments: {e.code()} - {e.details()}")
+
+            return ticket_id, None
 
         except grpc.RpcError as e:
-            logger.error(f"gRPC error creating ticket: {e.code()} - {e.details()}")
-            return None
+            logger.error(f"gRPC error: {e.code()} - {e.details()}")
+            return ticket_id, None
         except Exception as e:
-            logger.error(f"Error creating ticket: {e}", exc_info=True)
-            return None
+            logger.error(f"Error: {e}", exc_info=True)
+            return ticket_id, None
+        finally:
+            if channel:
+                channel.close()
 
     def get_ticket(self, ticket_id: str) -> Optional[messages_pb2.Ticket]:
         try:
@@ -80,38 +104,6 @@ class MatchmakingClient:
             return None
         except Exception as e:
             logger.error(f"Error getting ticket: {e}", exc_info=True)
-            return None
-
-    def wait_for_assignment(self, ticket_id: str) -> Optional[str]:
-        logger.info(f"Waiting for assignment (timeout: {ASSIGNMENT_TIMEOUT}s)...")
-
-        try:
-            channel = grpc.insecure_channel(self.frontend_addr)
-            stub = frontend_pb2_grpc.FrontendServiceStub(channel)
-
-            request = frontend_pb2.WatchAssignmentsRequest(ticket_id=ticket_id)
-
-            try:
-                response_iterator = stub.WatchAssignments(request, timeout=ASSIGNMENT_TIMEOUT)
-
-                for response in response_iterator:
-                    if response.assignment and response.assignment.connection:
-                        connection = response.assignment.connection
-                        logger.info(f"Assignment received: {connection}")
-                        channel.close()
-                        return connection
-
-            except grpc.RpcError as e:
-                if e.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
-                    logger.warning("Timeout waiting for assignment")
-                else:
-                    logger.error(f"gRPC error watching assignments: {e.code()} - {e.details()}")
-
-            channel.close()
-            return None
-
-        except Exception as e:
-            logger.error(f"Error waiting for assignment: {e}", exc_info=True)
             return None
 
     def delete_ticket(self, ticket_id: str) -> bool:
@@ -139,15 +131,13 @@ class MatchmakingClient:
         logger.info("OpenMatch Matchmaking Test Client (gRPC)")
         logger.info("=" * 60)
 
-        ticket_id = self.create_ticket()
+        ticket_id, connection = self.create_ticket_and_wait()
 
         if not ticket_id:
             logger.error("Failed to create ticket")
             return 1
 
         try:
-            connection = self.wait_for_assignment(ticket_id)
-
             if connection:
                 logger.info("=" * 60)
                 logger.info(f"SUCCESS! Match found!")
