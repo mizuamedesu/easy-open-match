@@ -5,9 +5,9 @@ import time
 import os
 import sys
 import grpc
-import ssl
-import requests
 from typing import List, Optional
+from kubernetes import client, config
+from kubernetes.client.rest import ApiException
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -33,18 +33,8 @@ MATCH_FUNCTION_HOST = os.getenv(
     'matchfunction.open-match.svc.cluster.local'
 )
 MATCH_FUNCTION_PORT = os.getenv('MATCH_FUNCTION_PORT', '50502')
-AGONES_ALLOCATOR_ENDPOINT = os.getenv(
-    'AGONES_ALLOCATOR_ENDPOINT',
-    'agones-allocator.agones-system.svc.cluster.local'
-)
-AGONES_ALLOCATOR_PORT = os.getenv('AGONES_ALLOCATOR_PORT', '443')
 AGONES_NAMESPACE = os.getenv('AGONES_NAMESPACE', 'game')
 AGONES_FLEET = os.getenv('AGONES_FLEET', 'ue5-gameserver-fleet')
-
-# Agones用のTLS証明書
-AGONES_CLIENT_CERT = os.getenv('AGONES_CLIENT_CERT', '/app/certs/client.crt')
-AGONES_CLIENT_KEY = os.getenv('AGONES_CLIENT_KEY', '/app/certs/client.key')
-AGONES_CA_CERT = os.getenv('AGONES_CA_CERT', '/app/certs/ca.crt')
 
 # マッチングサイクルの間隔（秒）
 FETCH_INTERVAL = int(os.getenv('FETCH_INTERVAL', '5'))
@@ -55,11 +45,21 @@ class Director:
     def __init__(self):
         self.backend_addr = OPEN_MATCH_BACKEND_SERVICE
         self.match_function_addr = f"{MATCH_FUNCTION_HOST}:{MATCH_FUNCTION_PORT}"
-        self.agones_allocator_url = f"https://{AGONES_ALLOCATOR_ENDPOINT}:{AGONES_ALLOCATOR_PORT}/gameserverallocation"
+
+        # Kubernetes APIクライアントを初期化（Pod内のServiceAccountを使用）
+        try:
+            config.load_incluster_config()
+            logger.info("Loaded in-cluster Kubernetes config")
+        except Exception as e:
+            logger.warning(f"Failed to load in-cluster config, trying kubeconfig: {e}")
+            config.load_kube_config()
+
+        self.custom_api = client.CustomObjectsApi()
 
         logger.info(f"Backend: {self.backend_addr}")
         logger.info(f"MatchFunction: {self.match_function_addr}")
-        logger.info(f"Agones Allocator: {self.agones_allocator_url}")
+        logger.info(f"Agones Namespace: {AGONES_NAMESPACE}")
+        logger.info(f"Agones Fleet: {AGONES_FLEET}")
 
     def create_match_profile(self) -> messages_pb2.MatchProfile:
         pool = messages_pb2.Pool(name="everyone")
@@ -116,8 +116,10 @@ class Director:
             return []
 
     def allocate_game_server(self) -> Optional[dict]:
+        """Kubernetes APIを使ってGameServerを割り当て"""
         try:
-            allocation_request = {
+            # GameServerAllocationリソース定義
+            allocation_body = {
                 "apiVersion": "allocation.agones.dev/v1",
                 "kind": "GameServerAllocation",
                 "spec": {
@@ -131,36 +133,22 @@ class Director:
 
             logger.info(f"Allocating GameServer from fleet {AGONES_FLEET}...")
 
-            # TLS証明書の存在確認
-            use_tls = all(os.path.exists(f) for f in [AGONES_CLIENT_CERT, AGONES_CLIENT_KEY, AGONES_CA_CERT])
-
-            if use_tls:
-                logger.info("Using TLS certificates for Agones Allocator")
-                response = requests.post(
-                    self.agones_allocator_url,
-                    json=allocation_request,
-                    headers={'Content-Type': 'application/json'},
-                    cert=(AGONES_CLIENT_CERT, AGONES_CLIENT_KEY),
-                    verify=AGONES_CA_CERT,
-                    timeout=10
-                )
-            else:
-                logger.warning("TLS certificates not found, using insecure connection (development only!)")
-                response = requests.post(
-                    self.agones_allocator_url,
-                    json=allocation_request,
-                    headers={'Content-Type': 'application/json'},
-                    verify=False,
-                    timeout=10
-                )
-
-            if response.status_code not in [200, 201]:
-                logger.error(f"Failed to allocate GameServer: {response.status_code} - {response.text}")
-                return None
-
-            result = response.json()
+            # Kubernetes APIでGameServerAllocationを作成
+            result = self.custom_api.create_namespaced_custom_object(
+                group="allocation.agones.dev",
+                version="v1",
+                namespace=AGONES_NAMESPACE,
+                plural="gameserverallocations",
+                body=allocation_body
+            )
 
             status = result.get('status', {})
+            state = status.get('state', '')
+
+            if state != 'Allocated':
+                logger.error(f"GameServer allocation failed, state: {state}")
+                return None
+
             address = status.get('address', '')
             ports = status.get('ports', [])
 
@@ -186,6 +174,9 @@ class Director:
                 'connection': connection
             }
 
+        except ApiException as e:
+            logger.error(f"Kubernetes API error allocating GameServer: {e.status} - {e.reason}")
+            return None
         except Exception as e:
             logger.error(f"Error allocating GameServer: {e}", exc_info=True)
             return None
@@ -259,12 +250,6 @@ class Director:
     def run(self):
         logger.info("Director starting...")
         logger.info(f"Fetch interval: {FETCH_INTERVAL}s")
-
-        # insecureモード時はSSL警告を無効化
-        use_tls = all(os.path.exists(f) for f in [AGONES_CLIENT_CERT, AGONES_CLIENT_KEY, AGONES_CA_CERT])
-        if not use_tls:
-            import urllib3
-            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
         while True:
             try:

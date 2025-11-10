@@ -1,7 +1,6 @@
 grpcio
 grpcio-tools
 protobuf
-requests
 googleapis-common-protos
-urllib3
+kubernetes
 protoc-gen-openapiv2
