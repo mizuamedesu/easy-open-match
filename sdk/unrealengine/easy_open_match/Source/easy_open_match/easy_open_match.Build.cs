@@ -1,5 +1,3 @@
-// Some copyright should be here...
-
 using System.IO;
 using UnrealBuildTool;
 
@@ -125,9 +123,7 @@ public class easy_open_match : ModuleRules
 		PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "absl_log_severity.lib"));
 		PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "absl_strerror.lib"));
 
-		// BoringSSL libraries
-		PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "ssl.lib"));
-		PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "crypto.lib"));
+		AddEngineThirdPartyPrivateStaticDependencies(Target, "OpenSSL");
 
 		// re2 library
 		PublicAdditionalLibraries.Add(Path.Combine(LibrariesPath, "re2.lib"));
