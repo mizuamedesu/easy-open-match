@@ -8,9 +8,19 @@
 #include "easy_open_matchBPLibrary.generated.h"
 
 /**
- * Delegate for matchmaking completion
+ * Delegate for matchmaking success
  */
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnMatchmakingComplete, bool, bSuccess, FString, ConnectionString);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMatchmakingSuccess, FString, ConnectionString);
+
+/**
+ * Delegate for matchmaking failure
+ */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMatchmakingFailure, FString, ErrorMessage);
+
+/**
+ * Delegate for matchmaking timeout
+ */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnMatchmakingTimeout);
 
 /**
  * Async Blueprint node for OpenMatch matchmaking
@@ -21,13 +31,17 @@ class UOpenMatchFindMatchAsyncAction : public UBlueprintAsyncActionBase
 	GENERATED_BODY()
 
 public:
-	// Success delegate - called when match is found
+	// Success delegate - called when match is found with connection string
 	UPROPERTY(BlueprintAssignable)
-	FOnMatchmakingComplete OnSuccess;
+	FOnMatchmakingSuccess OnSuccess;
 
-	// Failure delegate - called when matchmaking fails or times out
+	// Failure delegate - called when matchmaking fails with error message
 	UPROPERTY(BlueprintAssignable)
-	FOnMatchmakingComplete OnFailure;
+	FOnMatchmakingFailure OnFailure;
+
+	// Timeout delegate - called when matchmaking times out
+	UPROPERTY(BlueprintAssignable)
+	FOnMatchmakingTimeout OnTimeout;
 
 	/**
 	 * Find a match using OpenMatch Frontend service
