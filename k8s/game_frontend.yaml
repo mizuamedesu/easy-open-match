@@ -1,0 +1,82 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: game-frontend-config
+  namespace: open-match
+data:
+  BEARER_TOKEN: ""
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: game-frontend
+  namespace: open-match
+  labels:
+    app: game-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: game-frontend
+  template:
+    metadata:
+      labels:
+        app: game-frontend
+    spec:
+      containers:
+      - name: game-frontend
+        image: ghcr.io/mizuamedesu/easy-open-match/game-frontend:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        env:
+        - name: OPEN_MATCH_FRONTEND_SERVICE
+          value: "open-match-frontend.open-match.svc.cluster.local:50504"
+        - name: ASSIGNMENT_TIMEOUT
+          value: "60"
+        - name: PORT
+          value: "8080"
+        - name: BEARER_TOKEN
+          valueFrom:
+            configMapKeyRef:
+              name: game-frontend-config
+              key: BEARER_TOKEN
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: game-frontend
+  namespace: open-match
+  labels:
+    app: game-frontend
+spec:
+  type: NodePort
+  selector:
+    app: game-frontend
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP

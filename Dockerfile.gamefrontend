@@ -1,0 +1,16 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY game_frontend.py .
+COPY protos/ ./protos/
+
+# protobuf生成ファイルのimportパスを修正
+RUN find ./protos/api -name '*_pb2*.py' -exec sed -i 's/from api import/from protos.api import/g' {} \;
+
+EXPOSE 8080
+
+CMD ["python", "game_frontend.py"]
