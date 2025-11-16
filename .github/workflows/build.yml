@@ -19,7 +19,7 @@ jobs:
 
     strategy:
       matrix:
-        component: [matchfunction, director, testclient, evaluator]
+        component: [matchfunction, director, testclient, evaluator, gamefrontend]
 
     steps:
     - name: Checkout repository
