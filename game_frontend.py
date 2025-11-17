@@ -8,7 +8,6 @@ import grpc
 from typing import Optional
 import jwt
 from datetime import datetime, timedelta
-from functools import wraps
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -63,23 +62,6 @@ def generate_jwt(ticket_id: str, server_info: dict, player_info: dict) -> str:
 
     token = jwt.encode(payload, JWT_SECRET_KEY, algorithm='HS256')
     return token
-
-
-def verify_jwt(token: str) -> Optional[dict]:
-    """JWT検証
-
-    Returns:
-        デコードされたペイロード、または検証失敗時はNone
-    """
-    try:
-        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=['HS256'])
-        return payload
-    except jwt.ExpiredSignatureError:
-        logger.warning("JWT has expired")
-        return None
-    except jwt.InvalidTokenError as e:
-        logger.warning(f"Invalid JWT: {e}")
-        return None
 
 
 def create_ticket(region: str) -> messages_pb2.Ticket:
