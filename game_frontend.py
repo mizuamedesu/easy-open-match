@@ -6,6 +6,8 @@ import sys
 from flask import Flask, request, jsonify
 import grpc
 from typing import Optional
+import jwt
+from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -27,6 +29,8 @@ OPEN_MATCH_FRONTEND_SERVICE = os.getenv(
 ASSIGNMENT_TIMEOUT = int(os.getenv('ASSIGNMENT_TIMEOUT', '60'))
 BEARER_TOKEN = os.getenv('BEARER_TOKEN', 'secret-token-12345')
 PORT = int(os.getenv('PORT', '8080'))
+JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'your-secret-key-change-in-production')
+JWT_EXPIRATION_MINUTES = int(os.getenv('JWT_EXPIRATION_MINUTES', '60'))
 
 app = Flask(__name__)
 
@@ -41,6 +45,23 @@ def check_auth(auth_header: Optional[str]) -> bool:
         return False
 
     return parts[1] == BEARER_TOKEN
+
+
+def generate_jwt(ticket_id: str, server_info: dict, player_info: dict) -> str:
+    """JWT生成"""
+    now = datetime.utcnow()
+    expiration = now + timedelta(minutes=JWT_EXPIRATION_MINUTES)
+
+    payload = {
+        'ticket_id': ticket_id,
+        'server': server_info,
+        'player': player_info,
+        'iat': now,
+        'exp': expiration
+    }
+
+    token = jwt.encode(payload, JWT_SECRET_KEY, algorithm='HS256')
+    return token
 
 
 def create_ticket(region: str) -> messages_pb2.Ticket:
@@ -132,19 +153,26 @@ def play(region: str):
         assignment = get_assignment(ticket_id)
 
         if assignment:
+            server_info = {
+                'ip': assignment['ip'],
+                'port': assignment['port'],
+                'connection': assignment['connection']
+            }
+            player_info = {
+                'skill': ticket.search_fields.double_args['skill'],
+                'latency': ticket.search_fields.double_args['latency'],
+                'region': region
+            }
+
+            # JWT生成
+            access_token = generate_jwt(ticket_id, server_info, player_info)
+
             result = {
                 'status': 'matched',
                 'ticket_id': ticket_id,
-                'server': {
-                    'ip': assignment['ip'],
-                    'port': assignment['port'],
-                    'connection': assignment['connection']
-                },
-                'player': {
-                    'skill': ticket.search_fields.double_args['skill'],
-                    'latency': ticket.search_fields.double_args['latency'],
-                    'region': region
-                }
+                'server': server_info,
+                'player': player_info,
+                'jwt': access_token
             }
             logger.info(f"Match found for ticket {ticket_id}: {assignment['connection']}")
             return jsonify(result), 200
@@ -171,6 +199,8 @@ if __name__ == '__main__':
     logger.info(f"OpenMatch Frontend: {OPEN_MATCH_FRONTEND_SERVICE}")
     logger.info(f"Port: {PORT}")
     logger.info(f"Bearer Token: {'*' * len(BEARER_TOKEN)}")
+    logger.info(f"JWT Expiration: {JWT_EXPIRATION_MINUTES} minutes")
+    logger.info(f"JWT Secret Key: {'*' * len(JWT_SECRET_KEY)}")
     logger.info("=" * 60)
 
     app.run(host='0.0.0.0', port=PORT, debug=False)

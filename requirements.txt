@@ -5,3 +5,4 @@ googleapis-common-protos
 kubernetes
 protoc-gen-openapiv2
 flask
+PyJWT
